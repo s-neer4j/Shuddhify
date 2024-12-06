@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Shuddhify</title>
+    <link rel="stylesheet" href=admin.css>
+</head>
+<body>
+    <div class="container">
+        <h1>Admin Dashboard</h1>
+        <h2>Blocked Users</h2>
+
+        {% if blocked_users %}
+        <ul id="user-list">
+            {% for user in blocked_users %}
+                <li>
+                    <div class="user-item">
+                        <p>User IP: {{ user['ip'] }}</p>
+                        <p>Offense Count: {{ user['offense_count'] }}</p>
+                        <button class="unblock-btn" data-ip="{{ user['ip'] }}">Unblock</button>
+                        <button class="details-btn" data-ip="{{ user['ip'] }}">View Details</button>
+                    </div>
+                </li>
+            {% endfor %}
+        </ul>
+        
+        {% else %}
+            <p>No blocked users at the moment.</p>
+        {% endif %}
+        <a href="{{ url_for('index') }}">Back to Home</a>
+    </div>
+
+    <script>// Add event listeners for unblock and details buttons
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('.unblock-btn').forEach(button => {
+                button.addEventListener('click', () => {
+                    const userIp = button.getAttribute('data-ip');
+                    unblockUser(userIp);
+                });
+            });
+        
+            document.querySelectorAll('.details-btn').forEach(button => {
+                button.addEventListener('click', () => {
+                    const userIp = button.getAttribute('data-ip');
+                    viewDetails(userIp);
+                });
+            });
+        });
+        
+        // Function to unblock a user
+        async function unblockUser(userIp) {
+            const response = await fetch(`/unblock/${userIp}`, { method: 'POST' });
+            const result = await response.json();
+            if (result.success) {
+                alert(`User with IP ${userIp} has been unblocked.`);
+                location.reload(); // Reload the page to update the list
+            } else {
+                alert(`Failed to unblock user with IP ${userIp}.`);
+            }
+        }
+        
+        // Function to view user details
+        function viewDetails(userIp) {
+            alert(`Viewing details for user IP: ${userIp}`);
+            // Implement additional logic for viewing user details if necessary
+        }
+        
+    </script>
+</body>
+</html>

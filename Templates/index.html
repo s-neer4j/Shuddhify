@@ -1,1 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
 
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shuddhify - Chat</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="static/main.css">
+</head>
+
+<body>
+    <div class="container mt-5 text-center">
+        <h1 class="app-title">Shuddhify</h1>
+        <div id="tagline" class="tagline-container"><span class="cursor">|</span></div>
+
+        <div class="row justify-content-center">
+            <!-- Chat Container -->
+            <div class="col-lg-8 col-md-8 col-sm-12 chat-container" id="chat-container"></div>
+
+            <!-- Input Box with Send and New Chat Buttons -->
+            <div class="input-box mx-auto">
+                <textarea id="userInput" class="form-control" placeholder="Type your message..." rows="2"></textarea>
+                <button class="btn send-btn" id="sendBtn" onclick="checkMessage()">Send</button>
+                <button class="btn new-chat-btn" id="newChatBtn" onclick="newChat()">New Chat</button>
+            </div>
+
+            <!-- Previous Chats Sidebar -->
+            <div class="col-lg-4 col-md-4 col-sm-12 previous-chats">
+                <h5 class="previous-chats-title">Previous Chats</h5>
+                <ul id="chatHistoryList" class="list-unstyled"></ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Login/Signup -->
+    <div class="modal fade" id="loginModal" tabindex="-1" aria-labelledby="loginModalLabel" aria-hidden="true" data-bs-backdrop="static">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="loginModalLabel">Welcome to Shuddhify</h5>
+                </div>
+                <div class="modal-body">
+                    <div id="loginForm">
+                        <h6 class="mb-3">Login</h6>
+                        <input type="email" class="form-control mb-3" id="loginEmail" placeholder="Email">
+                        <input type="password" class="form-control mb-3" id="loginPassword" placeholder="Password">
+                        <button class="btn btn-primary w-100 mb-3" onclick="handleLogin()">Log in</button>
+                        <p class="text-center">Don't have an account? <a href="#" onclick="toggleForms('signup')">Sign up</a></p>
+                    </div>
+
+                    <div id="signupForm" style="display: none;">
+                        <h6 class="mb-3">Sign Up</h6>
+                        <input type="text" class="form-control mb-3" id="signupName" placeholder="Full Name">
+                        <input type="email" class="form-control mb-3" id="signupEmail" placeholder="Email">
+                        <input type="password" class="form-control mb-3" id="signupPassword" placeholder="Password">
+                        <button class="btn btn-secondary w-100 mb-3" onclick="handleSignup()">Sign Up</button>
+                        <p class="text-center">Already have an account? <a href="#" onclick="toggleForms('login')">Log in</a></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Track message count and chat history
+        let messageCount = 0;
+        let chatHistory = [];
+        let previousChats = [];
+        let isAuthenticated = false;
+
+        // Welcome messages
+        const welcomeMessages = [
+            "Hi! I'm Shuddhify. How can I assist you today?",
+            "Welcome! I'm here to help make our conversation more meaningful.",
+            "Hello! I'm your friendly AI assistant. Let's have a great conversation!"
+        ];
+
+        // Initialize chat on page load
+        window.onload = function() {
+            displayWelcomeMessage();
+            checkAuthenticationStatus();
+        };
+
+        function displayWelcomeMessage() {
+            const randomWelcome = welcomeMessages[Math.floor(Math.random() * welcomeMessages.length)];
+            const chatContainer = document.getElementById('chat-container');
+            const welcomeDiv = document.createElement('div');
+            welcomeDiv.classList.add('message', 'bot-message');
+            welcomeDiv.innerHTML = `<div class="message-bubble bot-bubble">${randomWelcome}</div>`;
+            chatContainer.appendChild(welcomeDiv);
+        }
+
+        function checkAuthenticationStatus() {
+            // Check if user is authenticated (you can implement your own logic)
+            const token = localStorage.getItem('authToken');
+            isAuthenticated = !!token;
+        }
+
+        async function checkMessage() {
+            try {
+                const userInput = document.getElementById('userInput');
+                const sendBtn = document.getElementById('sendBtn');
+                const chatContainer = document.getElementById('chat-container');
+                const message = userInput.value.trim();
+
+                if (!message) return;
+
+                if (messageCount >= 15 && !isAuthenticated) {
+                    showLoginModal();
+                    return;
+                }
+
+                // Disable send button while processing
+                sendBtn.disabled = true;
+
+                // Display user's message
+                const userMessageDiv = document.createElement('div');
+                userMessageDiv.classList.add('message', 'user-message');
+                userMessageDiv.innerHTML = `<div class="message-bubble user-bubble">${message}</div>`;
+                chatContainer.appendChild(userMessageDiv);
+
+                // Clear input and update chat
+                userInput.value = '';
+                messageCount++;
+                chatHistory.push({
+                    sender: 'user',
+                    text: message
+                });
+
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+
+                try {
+                    // Send message to backend
+                    const response = await fetch('/predict', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            message: message
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    const botResponse = result.bot_response || "I apologize, but I couldn't process that message.";
+
+                    // Display bot's response after a short delay for natural feeling
+                    setTimeout(() => {
+                        const botMessageDiv = document.createElement('div');
+                        botMessageDiv.classList.add('message', 'bot-message');
+                        botMessageDiv.innerHTML = `<div class="message-bubble bot-bubble">${botResponse}</div>`;
+                        chatContainer.appendChild(botMessageDiv);
+                        chatContainer.scrollTop = chatContainer.scrollHeight;
+
+                        chatHistory.push({
+                            sender: 'bot',
+                            text: botResponse
+                        });
+
+                        // Check message limit
+                        if (messageCount === 15 && !isAuthenticated) {
+                            showLoginModal();
+                            disableSendButton();
+                        }
+                    }, 500);
+
+                } catch (error) {
+                    console.error('Error:', error);
+                    const errorResponse = "I apologize, but I'm having trouble connecting. Please try again in a moment.";
+
+                    const botMessageDiv = document.createElement('div');
+                    botMessageDiv.classList.add('message', 'bot-message');
+                    botMessageDiv.innerHTML = `<div class="message-bubble bot-bubble">${errorResponse}</div>`;
+                    chatContainer.appendChild(botMessageDiv);
+                }
+
+            } finally {
+                // Re-enable send button if not at message limit or if authenticated
+                if (messageCount < 15 || isAuthenticated) {
+                    sendBtn.disabled = false;
+                }
+            }
+        }
+
+        function disableSendButton() {
+            const sendBtn = document.getElementById('sendBtn');
+            sendBtn.disabled = true;
+            sendBtn.classList.add('disabled-btn');
+        }
+
+        // function newChat() {
+        //     if (chatHistory.length > 0) {
+        //         previousChats.push([...chatHistory]);
+        //         updateChatHistoryList();
+        //     }
+        //     chatHistory = [];
+        //     document.getElementById('chat-container').innerHTML = '';
+        //     messageCount = 0;
+
+        //     const sendBtn = document.getElementById('sendBtn');
+        //     if (isAuthenticated || messageCount < 15) {
+        //         sendBtn.disabled = false;
+        //         sendBtn.classList.remove('disabled-btn');
+        //     }
+
+        //     displayWelcomeMessage();
+        // }
+
+        function newChat() {
+    // Save the current chat history if it exists
+    if (chatHistory.length > 0) {
+        previousChats.push([...chatHistory]); // Deep copy the current chat history
+        updateChatHistoryList(); // Update the previous chats sidebar
+    }
+
+    // Reset chat history and UI
+    chatHistory = [];
+    document.getElementById('chat-container').innerHTML = ''; // Clear the chat container
+    messageCount = 0; // Reset the message count
+
+    // Re-enable the Send button
+    const sendBtn = document.getElementById('sendBtn');
+    sendBtn.disabled = false;
+    sendBtn.classList.remove('disabled-btn');
+
+    // Display a new welcome message
+    displayWelcomeMessage();
+}
+
+
+function updateChatHistoryList() {
+    const chatHistoryList = document.getElementById('chatHistoryList');
+    chatHistoryList.innerHTML = ''; // Clear the list
+
+    previousChats.forEach((chat, index) => {
+        const chatItem = document.createElement('li');
+        chatItem.classList.add('previous-chat-item');
+        chatItem.innerHTML = `
+            <button class="btn btn-secondary w-100 mb-2" onclick="viewPreviousChat(${index})">
+                Chat ${index + 1}
+            </button>`;
+        chatHistoryList.appendChild(chatItem);
+    });
+}
+
+
+        function toggleForms(form) {
+            document.getElementById('loginForm').style.display = form === 'login' ? 'block' : 'none';
+            document.getElementById('signupForm').style.display = form === 'signup' ? 'block' : 'none';
+        }
+
+        async function handleLogin() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+
+            try {
+                // Implement your login API call here
+                const response = await fetch('/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email,
+                        password
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    localStorage.setItem('authToken', data.token);
+                    isAuthenticated = true;
+                    bootstrap.Modal.getInstance(document.getElementById('loginModal')).hide();
+
+                    // Enable send button
+                    const sendBtn = document.getElementById('sendBtn');
+                    sendBtn.disabled = false;
+                    sendBtn.classList.remove('disabled-btn');
+                } else {
+                    alert('Invalid credentials. Please try again.');
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                alert('Login failed. Please try again.');
+            }
+        }
+
+        async function handleSignup() {
+            const name = document.getElementById('signupName').value;
+            const email = document.getElementById('signupEmail').value;
+            const password = document.getElementById('signupPassword').value;
+
+            try {
+                // Implement your signup API call here
+                const response = await fetch('/signup', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name,
+                        email,
+                        password
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    localStorage.setItem('authToken', data.token);
+                    isAuthenticated = true;
+                    bootstrap.Modal.getInstance(document.getElementById('loginModal')).hide();
+
+                    // Enable send button
+                    const sendBtn = document.getElementById('sendBtn');
+                    sendBtn.disabled = false;
+                    sendBtn.classList.remove('disabled-btn');
+                } else {
+                    alert('Signup failed. Please try again.');
+                }
+            } catch (error) {
+                console.error('Signup error:', error);
+                alert('Signup failed. Please try again.');
+            }
+        }
+
+        // Tagline animation
+        const taglines = [
+            "Promoting Respectful Conversations",
+            "Clean Language, Clear Communication",
+            "........................ error",
+            "Transforming Dialogue for a Better Tomorrow"
+        ];
+
+        function randomColor() {
+            const colors = ['#ffffff' ];
+            return colors[Math.floor(Math.random() * colors.length)];
+        }
+
+        function typeTagline(tagline) {
+            const taglineDiv = document.getElementById('tagline');
+            const cursor = taglineDiv.querySelector('.cursor');
+            let index = 0;
+
+            function typeLetter() {
+                if (index < tagline.length) {
+                    const letterSpan = document.createElement('span');
+                    letterSpan.style.color = randomColor();
+                    letterSpan.innerText = tagline.charAt(index);
+                    taglineDiv.insertBefore(letterSpan, cursor);
+                    index++;
+                    setTimeout(typeLetter, 100);
+                }
+            }
+
+            typeLetter();
+        }
+
+        function displayRandomTagline() {
+            const randomIndex = Math.floor(Math.random() * taglines.length);
+            document.getElementById('tagline').innerHTML = '<span class="cursor">|</span>';
+            typeTagline(taglines[randomIndex]);
+        }
+
+        // Event Listeners
+        document.getElementById('userInput').addEventListener('keydown', function(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                checkMessage();
+            }
+        });
+
+        // Initialize
+        displayRandomTagline();
+        setInterval(displayRandomTagline, 15000);
+
+        // Prevent right-click
+        // document.addEventListener("contextmenu", function(e) {
+        //     e.preventDefault();
+        // });
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>

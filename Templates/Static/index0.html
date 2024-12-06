@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Chat Interface</title>
+    <style>
+        .chat-container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .message-input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .send-button {
+            padding: 10px 20px;
+        }
+        
+        #chat-messages {
+            margin-top: 20px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="chat-container">
+        <div id="chat-messages"></div>
+        <textarea class="message-input" id="message-input" placeholder="Type your message..."></textarea>
+        <button class="send-button" onclick="sendMessage()">Send</button>
+    </div>
+
+    <script>
+        function sendMessage() {
+            const messageInput = document.getElementById('message-input');
+            const message = messageInput.value.trim();
+
+            if (message) {
+                // Add user message to chat
+                addMessageToChat('You: ' + message);
+
+                // Send message to server
+                fetch('/predict', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            message: message
+                        }),
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        // Add bot response to chat
+                        addMessageToChat('Bot: ' + data.bot_response);
+                        if (data.status !== 'clean') {
+                            console.log('Message flagged as: ' + data.status);
+                            console.log('Confidence: ' + data.confidence);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        addMessageToChat('Bot: Sorry, there was an error processing your message.');
+                    });
+
+                // Clear input
+                messageInput.value = '';
+            }
+        }
+
+        function addMessageToChat(message) {
+            const chatMessages = document.getElementById('chat-messages');
+            const messageElement = document.createElement('div');
+            messageElement.textContent = message;
+            chatMessages.appendChild(messageElement);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // Allow Enter key to send message
+        document.getElementById('message-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+
+</html>

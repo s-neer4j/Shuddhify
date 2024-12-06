@@ -1,0 +1,10 @@
+# requirements.txt
+
+flask
+transformers
+torch
+langdetect
+pickle5
+pandas
+sklearn
+google-generativeai
